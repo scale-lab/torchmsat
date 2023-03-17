@@ -39,19 +39,19 @@ class _Model_(torch.nn.Module):
         return cost
 
     def __str__(self) -> str:
-        return f'W={self.W}'
+        return f"W={self.W}"
 
 
-class Solver():
+class Solver:
     def __init__(self, nv, clauses) -> None:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         self.trace = {
-            'start_time': 0.0,
-            'nn_build_time': 0.0,
-            'max_sat_time': 0.0,
-            'nv': nv,
-            'nc': len(clauses)
+            "start_time": 0.0,
+            "nn_build_time": 0.0,
+            "max_sat_time": 0.0,
+            "nv": nv,
+            "nc": len(clauses),
         }
         self.sols: List[Tuple] = []
 
