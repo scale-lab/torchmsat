@@ -1,4 +1,6 @@
 import signal
+from typing import List, Tuple
+
 import torch
 
 
@@ -26,7 +28,7 @@ class _Model_(torch.nn.Module):
         self.sol = torch.zeros_like(self.x)
 
     def forward(self):
-        act = torch.tanh(self.e*self.x) @ self.W.T
+        act = torch.tanh(self.e * self.x) @ self.W.T
         self.sol[self.x > 0] = 1.0
         self.sol[self.x <= 0] = -1.0
         return act
@@ -35,7 +37,6 @@ class _Model_(torch.nn.Module):
         unsat_clauses = (self.sol @ self.W.T) == self.SAT
         cost = torch.sum(unsat_clauses).item()
         return cost
-
 
     def __str__(self) -> str:
         return f'W={self.W}'
@@ -52,7 +53,7 @@ class Solver():
             'nv': nv,
             'nc': len(clauses)
         }
-        self.sols = []
+        self.sols: List[Tuple] = []
 
         self.model = _Model_(nv, clauses)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
@@ -76,4 +77,3 @@ class Solver():
 
     def signal_handler(self, sig, frame):
         print(self.max_sat())
-
