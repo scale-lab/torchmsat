@@ -21,8 +21,10 @@ if __name__ == "__main__":
             build_time = trace["nn_build_time"]
             solve_time = trace["max_sat_time"]
             total_time = trace["total_time"]
-            line = f"{prob.name}, {cnf.nv}, {len(cnf.clauses)}, {cost}, "\
-                   f"{build_time:.4f}, {solve_time:.4f}, {total_time:.4f}"
+            line = (
+                f"{prob.name}, {cnf.nv}, {len(cnf.clauses)}, {cost}, "
+                f"{build_time:.4f}, {solve_time:.4f}, {total_time:.4f}"
+            )
             f.write(line + "\n")
             f.flush()
             print(line)
