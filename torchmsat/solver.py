@@ -1,5 +1,5 @@
 import signal
-from typing import List, Tuple
+import time
 
 import torch
 
@@ -7,16 +7,17 @@ import torch
 class _Model_(torch.nn.Module):
     def __init__(self, nv, clauses) -> None:
         super(_Model_, self).__init__()
+        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.e = torch.ones((1, nv))
-        x = torch.rand((1, nv))
+        self.e = torch.ones((1, nv), device=device)
+        x = torch.rand((1, nv), device=device)
         self.x = torch.nn.Parameter(x)
 
-        self.W = torch.zeros((len(clauses), nv))
+        self.W = torch.zeros((len(clauses), nv), device=device)
 
-        self.target = torch.zeros((1, len(clauses)))
+        self.target = torch.zeros((1, len(clauses)), device=device)
 
-        self.SAT = torch.zeros((1, len(clauses)))
+        self.SAT = torch.zeros((1, len(clauses)), device=device)
         for i, clause in enumerate(clauses):
             for literal in clause:
                 value = 1.0 if literal > 0 else -1.0
@@ -25,7 +26,7 @@ class _Model_(torch.nn.Module):
             self.SAT[0, i] = -len(clause)
 
         # Auxiliary for reporting a solution
-        self.sol = torch.zeros_like(self.x)
+        self.sol = torch.zeros_like(self.x, device=device)
 
     def forward(self):
         act = torch.tanh(self.e * self.x) @ self.W.T
@@ -50,30 +51,39 @@ class Solver:
             "start_time": 0.0,
             "nn_build_time": 0.0,
             "max_sat_time": 0.0,
+            "total_time": 0.0,
+            "cost": len(clauses),
+            "sol": None,
             "nv": nv,
             "nc": len(clauses),
         }
-        self.sols: List[Tuple] = []
+        self.trace["start_time"] = time.time()
 
         self.model = _Model_(nv, clauses)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
         self.loss = torch.nn.MSELoss()
 
-    def compute(self):
-        for i in range(1000):
+        self.trace["nn_build_time"] = time.time() - self.trace["start_time"]
+
+    def compute(self, steps=1000):
+        solve_start_time = time.time()
+        for i in range(steps):
             self.optimizer.zero_grad()
             out = self.model()
             output = self.loss(out, self.model.target)
             output.backward()
             self.optimizer.step()
 
-            self.sols.append((self.model.sat(), self.model.sol))
-
+            cost = self.model.sat()
+            if cost < self.trace["cost"]:
+                self.trace["cost"] = cost
+                # self.trace['sol'] = self.model.sol
+                self.trace["max_sat_time"] = time.time() - solve_start_time
+        self.trace["total_time"] = time.time() - solve_start_time
         return self.max_sat()
 
     def max_sat(self):
-        max_sat = min(self.sols, key=lambda sol: sol[0])
-        return max_sat  # returns (cost, assignment)
+        return self.trace
 
     def signal_handler(self, sig, frame):
         print(self.max_sat())
