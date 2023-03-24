@@ -13,11 +13,11 @@ class _Model_(torch.nn.Module):
         x = torch.rand((1, nv), device=device)
         self.x = torch.nn.Parameter(x)
 
-        self.W = torch.zeros((len(clauses), nv), device=device)
+        self.W = torch.zeros((len(clauses), nv))
 
         self.target = torch.zeros((1, len(clauses)), device=device)
 
-        self.SAT = torch.zeros((1, len(clauses)), device=device)
+        self.SAT = torch.zeros((1, len(clauses)))
         for i, clause in enumerate(clauses):
             for literal in clause:
                 value = 1.0 if literal > 0 else -1.0
@@ -26,7 +26,11 @@ class _Model_(torch.nn.Module):
             self.SAT[0, i] = -len(clause)
 
         # Auxiliary for reporting a solution
-        self.sol = torch.zeros_like(self.x, device=device)
+        self.sol = torch.empty_like(self.x, device=device)
+
+        # GPU
+        self.W = self.W.to(device)
+        self.SAT = self.SAT.to(device)
 
     def forward(self):
         act = torch.tanh(self.e * self.x) @ self.W.T
@@ -44,7 +48,7 @@ class _Model_(torch.nn.Module):
 
 
 class Solver:
-    def __init__(self, nv, clauses) -> None:
+    def __init__(self, nv, clauses, lr=1e-4) -> None:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         self.trace = {
@@ -54,13 +58,14 @@ class Solver:
             "total_time": 0.0,
             "cost": len(clauses),
             "sol": None,
+            "itr": 0,
             "nv": nv,
             "nc": len(clauses),
         }
         self.trace["start_time"] = time.time()
 
         self.model = _Model_(nv, clauses)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.loss = torch.nn.MSELoss()
 
         self.trace["nn_build_time"] = time.time() - self.trace["start_time"]
@@ -77,8 +82,9 @@ class Solver:
             cost = self.model.sat()
             if cost < self.trace["cost"]:
                 self.trace["cost"] = cost
-                # self.trace['sol'] = self.model.sol
+                self.trace["itr"] = i
                 self.trace["max_sat_time"] = time.time() - solve_start_time
+                # self.trace['sol'] = self.model.sol
         self.trace["total_time"] = time.time() - solve_start_time
         return self.max_sat()
 

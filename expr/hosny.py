@@ -11,19 +11,22 @@ probs = sorted(data_path.glob("*.zip"), key=lambda f: int(f.name.split("/")[-1].
 if __name__ == "__main__":
     timer = None
     with open("hosny-gpu-gt.csv", "w") as f:
-        f.write("cnf, n_vars, n_clauses, cost, build time, solving time, total search time\n")
+        f.write(
+            "cnf, n_vars, n_clauses, cost, build time, solving time, total search time, solved@iteration\n"
+        )
         for prob in probs:
             print(prob.name)
             cnf = CNF(from_file=prob)
-            s = Solver(cnf.nv, cnf.clauses)
+            s = Solver(cnf.nv, cnf.clauses, lr=1e-4)
             trace = s.compute(steps=5000)
             cost = trace["cost"]
             build_time = trace["nn_build_time"]
             solve_time = trace["max_sat_time"]
             total_time = trace["total_time"]
+            itr = trace["itr"]
             line = (
                 f"{prob.name}, {cnf.nv}, {len(cnf.clauses)}, {cost}, "
-                f"{build_time:.4f}, {solve_time:.4f}, {total_time:.4f}"
+                f"{build_time:.4f}, {solve_time:.4f}, {total_time:.4f}, {itr}"
             )
             f.write(line + "\n")
             f.flush()
