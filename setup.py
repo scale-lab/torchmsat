@@ -36,7 +36,9 @@ setup(
     author="Abdelrahman Hosny",
     author_email="abdelrahman_hosny@brown.edu",
     license="Apache",
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"],),
+    packages=find_packages(
+        exclude=["*.tests", "*.tests.*", "tests.*", "tests"],
+    ),
     package_data={"torchmsat": ["py.typed"]},
     install_requires=read_requirements("requirements.txt"),
     extras_require={"dev": read_requirements("dev-requirements.txt")},
