@@ -10,7 +10,7 @@ probs = sorted(data_path.glob("*.zip"), key=lambda f: int(f.name.split("/")[-1].
 
 if __name__ == "__main__":
     timer = None
-    with open("results/hosny-cpu-gt-1e-2.csv", "w") as f:
+    with open("results/hosny-cpu-gt-1e-2_3.csv", "w") as f:
         f.write(
             "cnf, n_vars, n_clauses, cost, build time, solving time, total search time, n_sols\n"
         )
@@ -18,7 +18,7 @@ if __name__ == "__main__":
             print(prob.name)
             cnf = CNF(from_file=prob)
             s = Solver(cnf.nv, cnf.clauses, lr=1e-2)
-            trace = s.compute(steps=5000)
+            trace = s.compute(masked_steps=3000, unmasked_steps=3000)
             cost = trace["cost"]
             build_time = trace["nn_build_time"]
             solve_time = trace["max_sat_time"]
@@ -31,6 +31,6 @@ if __name__ == "__main__":
             f.write(line + "\n")
             f.flush()
             print(line)
-            with open(f"results/hosny-cpu-gt-1e-2/{prob.name}.sol", "w") as sol_file:
+            with open(f"results/hosny-cpu-gt-1e-2_3/{prob.name}.sol", "w") as sol_file:
                 for sol in trace["sols"][cost]:
                     sol_file.write(f"{sol[0]}; {sol[1]}")

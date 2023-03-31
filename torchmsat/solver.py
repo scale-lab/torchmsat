@@ -42,7 +42,7 @@ class _Model_(torch.nn.Module):
     def sat(self):
         unsat_clauses = (self.sol @ self.W) == self.SAT
         cost = torch.sum(unsat_clauses).item()
-        return cost
+        return cost, unsat_clauses
 
     def __str__(self) -> str:
         return f"W={self.W}"
@@ -68,16 +68,16 @@ class Solver:
 
         self.trace["nn_build_time"] = time.time() - self.trace["start_time"]
 
-    def compute(self, steps=1000):
+    def compute(self, unmasked_steps=1000, masked_steps=4000):
         solve_start_time = time.time()
-        for i in range(steps):
+        for i in range(unmasked_steps):
             self.optimizer.zero_grad()
             out = self.model()
             output = self.loss(out, self.model.target)
             output.backward()
             self.optimizer.step()
 
-            cost = self.model.sat()
+            cost, _ = self.model.sat()
             if cost < self.trace["cost"]:
                 self.trace["cost"] = cost
                 self.trace["max_sat_time"] = time.time() - solve_start_time
@@ -87,6 +87,32 @@ class Solver:
             ):
                 # Pareto frontier solutions at the lowest cost so far (till this iteration)
                 self.trace["sols"][cost].append((i, self.sol_str()))
+
+        # Focus on the unsatisfied clauses
+        for j in range(int(masked_steps / 100)):
+            cost, unsat_clauses = self.model.sat()
+            for k in range(100):
+                self.optimizer.zero_grad()
+                out = self.model()
+                output = self.loss(
+                    torch.masked_select(out, unsat_clauses),
+                    torch.masked_select(self.model.target, unsat_clauses),
+                )
+                output.backward()
+                self.optimizer.step()
+
+                cost, _ = self.model.sat()
+                if cost < self.trace["cost"]:
+                    self.trace["cost"] = cost
+                    self.trace["max_sat_time"] = time.time() - solve_start_time
+                    self.trace["sols"][cost] = [(i, self.sol_str())]
+                elif cost == self.trace["cost"] and self.sol_str() not in list(
+                    map(lambda sol: sol[1], self.trace["sols"][cost])
+                ):
+                    # Pareto frontier solutions at the lowest cost so far (till this iteration)
+                    self.trace["sols"][cost].append((1000 + j + k, self.sol_str()))
+
+        # Report total search time
         self.trace["total_time"] = time.time() - solve_start_time
         return self.max_sat()
 
@@ -94,4 +120,6 @@ class Solver:
         return self.trace
 
     def sol_str(self):
-        return ",".join([str(1 if var > 0 else 0) for var in self.model.sol.flatten().tolist()]) + "\n"
+        return (
+            ",".join([str(1 if var > 0 else 0) for var in self.model.sol.flatten().tolist()]) + "\n"
+        )
