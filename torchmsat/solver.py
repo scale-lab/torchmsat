@@ -10,15 +10,15 @@ class _Model_(torch.nn.Module):
             torch.device("cuda") if torch.cuda.is_available() and use_gpu else torch.device("cpu")
         )
 
-        self.e = torch.ones((1, nv), device=device)
-        x = torch.rand((1, nv), device=device)
+        self.e = torch.ones((1, nv), device=device, dtype=torch.half)
+        x = torch.rand((1, nv), device=device, dtype=torch.half)
         self.x = torch.nn.Parameter(x)
 
-        self.W = torch.zeros((nv, len(clauses)))
+        self.W = torch.zeros((nv, len(clauses)), dtype=torch.half)
 
-        self.target = torch.zeros((1, len(clauses)), device=device)
+        self.target = torch.zeros((1, len(clauses)), device=device, dtype=torch.half)
 
-        self.SAT = torch.zeros((1, len(clauses)))
+        self.SAT = torch.zeros((1, len(clauses)), dtype=torch.half)
         for clause_idx, clause in enumerate(clauses):
             for literal in clause:
                 value = 1.0 if literal > 0 else -1.0
@@ -27,7 +27,7 @@ class _Model_(torch.nn.Module):
             self.SAT[0, clause_idx] = -len(clause)
 
         # Auxiliary for reporting a solution
-        self.sol = torch.empty_like(self.x, device=device)
+        self.sol = torch.empty_like(self.x, device=device, dtype=torch.half)
 
         # GPU
         self.W = self.W.to(device)
